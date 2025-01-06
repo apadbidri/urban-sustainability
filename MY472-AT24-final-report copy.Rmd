@@ -1,0 +1,38 @@
+---
+title: "Air Quality as a Critial Public Health Challenge"
+author: "Candidate Number: 43182"
+date: "[Insert the date of your final version here]"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Prompt:** 1
+
+**ChatGPT/AI disclosure statement:** ChatGPT was used to help brainstorm ideas and clarify concepts. However, all data collection, analysis, and writing were carried out independently.
+
+## 1. Introduction 
+
+You should begin your report with a concise and engaging introduction. At a minimum, this introduction should describe the data you are collecting, why it is important and interesting, and what it could be used for. Your introduction should also narrow the scope of the prompt in a way that is both clear and engaging to the reader. For example, if you choose prompt 3, your introduction should make clear what organisation you work for and what objective it is struggling to meet.
+
+## 2. [Insert a section title here]
+
+[The text and code for this section goes here.]
+
+## 3. [Insert a section title here]
+
+[The text and code for this section goes here.]
+
+## 4. [Insert a section title here]
+
+[The text and code for this section goes here.]
+
+## 5. [Insert a section title here]
+
+[The text and code for this section goes here.]
+
+## 6. [Insert a section title here]
+
+[The text and code for this section goes here.]
