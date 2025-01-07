@@ -1,5 +1,5 @@
 ---
-title: "Air Quality as a Critial Public Health Challenge"
+title: "Assessing the Impact of Energy Policy on the Financial Performance of Energy Companies"
 author: "Candidate Number: 43182"
 date: "[Insert the date of your final version here]"
 output: html_document
@@ -17,22 +17,113 @@ knitr::opts_chunk$set(echo = TRUE)
 
 You should begin your report with a concise and engaging introduction. At a minimum, this introduction should describe the data you are collecting, why it is important and interesting, and what it could be used for. Your introduction should also narrow the scope of the prompt in a way that is both clear and engaging to the reader. For example, if you choose prompt 3, your introduction should make clear what organisation you work for and what objective it is struggling to meet.
 
-## 2. [Insert a section title here]
+- significance of air quality as a public health challenge, particularly on respiratory diseases
+- holiday focus (increased traffic, heating and holiday activities that thereby contribute to pollution spikes)
+- relevance: inform future public health campaigns, government regulations and urban planning decisions 
+
+## 2. Primary Data Collection (US energy consumption)
+
+You should explain what data you are collecting, how you are collecting it and why it can be considered your "primary" data.
+
+You should explain whether there are any limits on the data you collected, and how you complied. You should also describe any ethical concerns or considerations in your data collection (e.g., when web scraping) and how you dealt with that in your code to ensure a responsible workflow.
+
+- US energy consumption
+
+```{r}
+library(httr)
+library(jsonlite)
+
+# Define your API key (replace "YOUR_API_KEY" with your actual API key)
+api_key <- "4s0cSEI4wy6PAjki0u9Rrl3ypjqiofDYr17z803N"
+
+# Define the API endpoint and parameters, including the API key
+url <- paste0("https://api.eia.gov/v2/electricity/electric-power-operational-data/data/?frequency=monthly&data[0]=consumption-for-eg&start=2022-08&end=2024-08&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=5000&api_key=", api_key)
+
+# Send the GET request
+response <- GET(url)
+
+# Check if the request was successful (status code 200)
+if (status_code(response) == 200) {
+  # Parse the JSON content
+  data <- fromJSON(content(response, "text"))
+  
+  # Print or explore the data
+  print(data)
+} else {
+  print(paste("Error:", status_code(response)))
+}
+If the API key is meant to go in the header:
+Alternatively, if the API key is meant to go in the header rather than the URL, you would use the add_headers() function:
+
+R
+Copy code
+headers <- c(
+  "X-API-Key" = "YOUR_API_KEY"
+)
+
+response <- GET(url, add_headers(headers))
+
+
+```
+
+SOURCE: Open AQ 
+
+
+## 3. Secondary Data Collection (energy company stock information)
+
+You should provide a good explanation for why it is supplements the primary data, and how you envision it could be used to augment the primary data. When we evaluate your data collection in sections 2 and 3, we want to see that you have used a broad range of techniques from this course
+
+```{r}
+# Using r vest to scrape stocks from 3 companies 
+# Load required libraries
+library(rvest)
+library(dplyr)
+
+# Step 1: Create a vector of company ticker symbols (you can modify this list easily)
+companies <- c("AAPL", "GOOG", "MSFT")  # Example: Apple, Google, Microsoft
+
+# Step 2: Define a function to scrape data for each company
+scrape_data <- function(company) {
+  # Construct the URL (adjust this based on the website you're scraping from)
+  url <- paste0("https://www.example.com/company/", company)
+  
+  # Extract the stock opening value using the XPath
+  stock_value <- page %>%
+    html_node(xpath = '//*[@id="nimbus-app"]/section/section/section/article/div[2]/ul/li[2]/span[2]/fin-streamer') %>%
+    html_text() %>%
+    as.numeric()
+  
+  return(stock_value)
+}
+
+# URLs for Apple, Google, and Microsoft on Yahoo Finance
+apple_url <- "https://finance.yahoo.com/quote/AAPL"
+google_url <- "https://finance.yahoo.com/quote/GOOG"
+microsoft_url <- "https://finance.yahoo.com/quote/MSFT"
+
+# Scrape stock opening values
+apple_opening <- get_stock_opening(apple_url)
+google_opening <- get_stock_opening(google_url)
+microsoft_opening <- get_stock_opening(microsoft_url)
+
+# Create a data frame to store the results
+stock_data <- data.frame(
+  Company = c("Apple", "Google", "Microsoft"),
+  Opening_Price = c(apple_opening, google_opening, microsoft_opening)
+)
+
+# Print the results
+print(stock_data)
+```
+
+## 4. Tabular data and transformations
 
 [The text and code for this section goes here.]
 
-## 3. [Insert a section title here]
+## 5. Data Visualisation
 
 [The text and code for this section goes here.]
 
-## 4. [Insert a section title here]
-
-[The text and code for this section goes here.]
-
-## 5. [Insert a section title here]
-
-[The text and code for this section goes here.]
-
-## 6. [Insert a section title here]
+## 6. Data output and storage 
 
 [The text and code for this section goes here.]
