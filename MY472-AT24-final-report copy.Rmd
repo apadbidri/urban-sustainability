@@ -44,7 +44,17 @@ network_cities <- c(
   "Bicing" = "Barcelona", 
   "Seoul Bike 따릉이" = "Seoul", 
   "Tembici" = "Bogotá", 
-  "Beryl - Greater Manchester" = "Manchester"
+  "Beryl - Greater Manchester" = "Manchester",
+  "Xi'an Public Bicycle" = "Xi'An", 
+  "Medina Careem BIKE" = "Medina", 
+  "LinkBike" = "Penang", 
+  "ThessBike" = "Thessaloniki", 
+  "BisPArks BCycle" = "North Dakota", 
+  "Accès Vélo" = "Saguenay", 
+  "Slovnaft BAjk" = "Bratislava", 
+  "SiXT" = "Riga", 
+  "Skrova Bysykkel" = "Skrova", 
+  "Shymkentbike" = "Shymkent"
 )
 
 # Fetch all networks to get a list of all available networks globally
@@ -100,74 +110,8 @@ if (http_type(response) == "application/json") {
 }
 ```
 
-Pulling bike info for the rural places 
-```{r}
-library(httr)
-library(jsonlite)
-library(dplyr)
-
-# Base API URL
-base_url <- "http://api.citybik.es/v2/networks"
-
-# Initialize an empty data frame to store the results
-citybike_info <- data.frame()
-
-# List of network names you are interested in
-desired_networks <- c("Slovnaft BAjk", "Medina Careem BIKE" )  # Add more network names here
-
-# Fetch all networks to get a list of all available networks globally
-response <- GET(base_url)
-
-# Check if the response is in JSON format
-if (http_type(response) == "application/json") {
-  networks_data <- content(response, as = "parsed", simplifyDataFrame = FALSE)
-  
-  # Make sure the networks_data is a list and contains the 'networks' key
-  if ("networks" %in% names(networks_data)) {
-    networks_list <- networks_data$networks
-    
-    # Loop through each network and fetch its detailed information if it's in the desired list
-    for (network in networks_list) {
-      network_name <- network$name
-      
-      # Check if the network is in the list of desired networks
-      if (network_name %in% desired_networks) {
-        network_id <- network$id
-        
-        # Construct the URL for the specific network's detailed information
-        network_url <- paste0(base_url, "/", network_id)
-        
-        # Fetch detailed information about the network
-        network_response <- GET(network_url)
-        network_details <- content(network_response, as = "parsed", simplifyDataFrame = TRUE)
-        
-        # Extract station details and add a new column for the network name
-        stations <- network_details$network$stations
-        stations$network_name <- network_name
-        
-        # Ensure that the 'extra$uid' column is of the same type across all networks
-        if("extra" %in% names(stations)) {
-          stations$extra$uid <- as.character(stations$extra$uid)
-        }
-        
-        # Combine the new stations data with the citybike_info dataset
-        citybike_info <- bind_rows(citybike_info, stations)
-      }
-    }
-    
-    # Print the combined citybike_info data
-    print(citybike_info)
-    
-  } else {
-    cat("Error: 'networks' not found in the API response.\n")
-  }
-} else {
-  cat("Failed to retrieve data from the CityBikes API.\n")
-}
 
 ```
-```
-
 
 
 
