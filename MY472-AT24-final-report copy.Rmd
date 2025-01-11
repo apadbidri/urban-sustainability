@@ -87,9 +87,45 @@ You should explain what data you are collecting, how you are collecting it and w
 You should explain whether there are any limits on the data you collected, and how you complied. You should also describe any ethical concerns or considerations in your data collection (e.g., when web scraping) and how you dealt with that in your code to ensure a responsible workflow.
 
 
-## 3. Secondary Data Collection (energy company stock information)
+## 3. Secondary Data Collection 
 
-You should provide a good explanation for why it is supplements the primary data, and how you envision it could be used to augment the primary data. When we evaluate your data collection in sections 2 and 3, we want to see that you have used a broad range of techniques from this course
+Information about pop density
+
+``` {r}
+# Load required libraries
+library(rvest)
+library(tibble)
+
+# Define the list of city names (you only need to modify this line to add more cities)
+cities <- c("London", "New_York_City")
+
+# Base URL for the Wikipedia pages
+base_url <- "https://en.wikipedia.org/wiki/"
+
+# Initialize an empty tibble to store results
+city_data <- tibble(City = character(), Population_Density = character())
+
+# Loop through each city name, construct the URL, and extract the population density
+for (city in cities) {
+  # Construct the full URL for each city
+  url <- paste0(base_url, city)
+  
+  # Read the HTML content of the webpage
+  webpage <- read_html(url)
+  
+  # Extract the population density value using the provided XPath
+  pop_density <- webpage %>%
+    html_nodes(xpath = '//*[@id="mw-content-text"]/div[1]/table[1]/tbody/tr[27]/td/text()[1]') %>%
+    html_text() %>%
+    trimws()  # Remove any leading or trailing whitespace
+  
+  # Add the city and its population density to the tibble
+  city_data <- bind_rows(city_data, tibble(City = city, Population_Density = pop_density))
+}
+
+# Print the final tibble
+print(city_data)
+```
 
 
 ## 4. Tabular data and transformations
