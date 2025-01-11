@@ -111,25 +111,18 @@ if (http_type(response) == "application/json") {
 ```
 
 
-```
-
-
-
-You should explain what data you are collecting, how you are collecting it and why it can be considered your "primary" data.
-
-You should explain whether there are any limits on the data you collected, and how you complied. You should also describe any ethical concerns or considerations in your data collection (e.g., when web scraping) and how you dealt with that in your code to ensure a responsible workflow.
-
-
 ## 3. Secondary Data Collection 
 
 Information about pop density
 
-``` {r}
+```{r}
 library(rvest)
 library(tibble)
 
 # Define the list of city names (you only need to modify this line to add more cities)
-cities <- c("Penang")
+cities <- c("Tokyo", "Paris", "Lisbon", "New_York_City", "São_Paulo", "Dubai", "Barcelona", "Seoul", 
+            "Bogotá", "Manchester", "Xi%27an", "Medina", "Penang", "Thessaloniki", "North_Dakota", 
+            "Saguenay", "Bratislava", "Riga", "Skrova", "Shymkent")
 
 # Base URL for the Wikipedia pages
 base_url <- "https://en.wikipedia.org/wiki/"
@@ -137,10 +130,8 @@ base_url <- "https://en.wikipedia.org/wiki/"
 # Initialize an empty tibble to store results
 city_data <- tibble(City = character(), Population_Density = character())
 
-# Define the CSS selector for population density
-pop_density_selector <- "#mw-content-text > div.mw-content-ltr.mw-parser-output > table.infobox.ib-pol-div.vcard > tbody > tr:nth-child(32)"
-area_selector <- "#mw-content-text > div.mw-content-ltr.mw-parser-output > table.infobox.ib-pol-div.vcard > tbody > tr:nth-child(32)"
-
+# Define the XPath for population density
+pop_density_xpath <- "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td/text()"
 
 # Loop through each city name, construct the URL, and extract the population density
 for (city in cities) {
@@ -148,76 +139,37 @@ for (city in cities) {
   url <- paste0(base_url, city)
   
   # Read the HTML content of the webpage
-  webpage <- read_html(url)
+  webpage <- tryCatch({
+    read_html(url)
+  }, error = function(e) {
+    message("Error reading ", city, " page: ", e$message)
+    return(NULL)
+  })
   
-  # Extract the population density value using the provided CSS selector
-  pop_density <- webpage %>%
-    html_nodes(css = pop_density_selector) %>%
-    html_text() %>% 
-    trimws()  # Remove any leading or trailing whitespace
-  
-   area <- webpage %>%
-    html_nodes(css = area_selector) %>%
-    html_text() %>%
-    trimws() 
-  
-  # If the population density is not found, set it as NA
-  pop_density <- ifelse(length(pop_density) == 0 || pop_density == "", NA, pop_density)
-  area <- ifelse(length(area) == 0 || area == "", NA, area)
-  
-  # Add the city and its population density to the tibble
-  city_data <- bind_rows(city_data, tibble(City = city, Population_Density = pop_density, Area = area))
+  if (!is.null(webpage)) {
+    # Extract the population density value using the provided XPath
+    pop_density <- webpage %>%
+      html_nodes(xpath = pop_density_xpath) %>%
+      html_text() %>% 
+      trimws()  # Remove any leading or trailing whitespace
+    
+    # If the population density is not found, set it as NA
+    if (length(pop_density) > 0) {
+      pop_density <- pop_density[1]  # Take the first value if there are multiple
+    } else {
+      pop_density <- NA
+    }
+    
+    # Add the city and its population density to the tibble
+    city_data <- bind_rows(city_data, tibble(City = city, Population_Density = pop_density))
+  }
 }
 
 # Print the final tibble
 print(city_data)
-
 ```
-```{r}
-# Load required libraries
-library(httr)
-library(jsonlite)
-library(tibble)
 
-# Your OpenAQ API Key
-api_key <- "5a43ffdd3f5fbba9f309a5114f194a9760851ed941b45a9e999ecd82c73616a1"
 
-# Base API URL for measurements
-url <- "https://explore.openaq.org/locations/3316776"
-
-# Query parameters for the API request
-params <- list(
-  location_id = 2884480,  # Location ID for your desired location
-  parameter = "pm25",     # Pollutant parameter
-  limit = 100,            # Maximum number of results to retrieve
-  order_by = "datetime"   # Order results by date
-)
-
-# Send GET request with API key in the header
-response <- GET(
-  url = url,
-  query = params,
-  add_headers(`X-API-Key` = api_key)
-)
-
-# Check response status
-if (http_status(response)$category == "Success") {
-  # Parse JSON content
-  data <- content(response, as = "parsed", simplifyDataFrame = TRUE)
-  
-  # Convert the results into a tibble
-  if (!is.null(data$results) && length(data$results) > 0) {
-    pm25_data <- as_tibble(data$results)
-    print(pm25_data)
-  } else {
-    cat("No PM2.5 data available for this location.\n")
-  }
-} else {
-  # Handle errors
-  cat("Error:", http_status(response)$message, "\n")
-}
-
-```
 
 ## 4. Tabular data and transformations
 
