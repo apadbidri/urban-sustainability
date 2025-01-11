@@ -1,5 +1,5 @@
 ---
-title: "Assessing the Impact of Energy Policy on the Financial Performance of Energy Companies"
+title: "Urban Sustainability and Bike-Sharing: A Global Perspective"
 author: "Candidate Number: 43182"
 date: "[Insert the date of your final version here]"
 output: html_document
@@ -17,104 +17,80 @@ knitr::opts_chunk$set(echo = TRUE)
 
 You should begin your report with a concise and engaging introduction. At a minimum, this introduction should describe the data you are collecting, why it is important and interesting, and what it could be used for. Your introduction should also narrow the scope of the prompt in a way that is both clear and engaging to the reader. For example, if you choose prompt 3, your introduction should make clear what organisation you work for and what objective it is struggling to meet.
 
-- significance of air quality as a public health challenge, particularly on respiratory diseases
-- holiday focus (increased traffic, heating and holiday activities that thereby contribute to pollution spikes)
-- relevance: inform future public health campaigns, government regulations and urban planning decisions 
 
-## 2. Primary Data Collection (US energy consumption)
+## 2. Primary Data Collection
+
+Pulling information about city bikes:
+
+```{r}
+# Load required libraries
+library(httr)
+library(jsonlite)
+library(dplyr)
+
+# Base API URL
+base_url <- "http://api.citybik.es/v2/networks"
+
+# Initialize an empty data frame to store the results
+citybike_info <- data.frame()
+
+# List of network names you are interested in
+desired_networks <- c("Nilesplit", "LinkBike")  # Add more network names here
+
+# Fetch all networks to get a list of all available networks globally
+response <- GET(base_url)
+
+# Check if the response is in JSON format
+if (http_type(response) == "application/json") {
+  networks_data <- content(response, as = "parsed", simplifyDataFrame = FALSE)
+  
+  # Make sure the networks_data is a list and contains the 'networks' key
+  if ("networks" %in% names(networks_data)) {
+    networks_list <- networks_data$networks
+    
+    # Loop through each network and fetch its detailed information if it's in the desired list
+    for (network in networks_list) {
+      network_name <- network$name
+      
+      # Check if the network is in the list of desired networks
+      if (network_name %in% desired_networks) {
+        network_id <- network$id
+        
+        # Construct the URL for the specific network's detailed information
+        network_url <- paste0(base_url, "/", network_id)
+        
+        # Fetch detailed information about the network
+        network_response <- GET(network_url)
+        network_details <- content(network_response, as = "parsed", simplifyDataFrame = TRUE)
+        
+        # Extract station details and add a new column for the network name
+        stations <- network_details$network$stations
+        stations$network_name <- network_name
+        
+        # Combine the new stations data with the citybike_info dataset
+        citybike_info <- bind_rows(citybike_info, stations)
+      
+        print(citybike_info)
+      }
+    }
+  } else {
+    cat("Error: 'networks' not found in the API response.\n")
+  }
+} else {
+  cat("Failed to retrieve data from the CityBikes API.\n")
+}
+
+```
 
 You should explain what data you are collecting, how you are collecting it and why it can be considered your "primary" data.
 
 You should explain whether there are any limits on the data you collected, and how you complied. You should also describe any ethical concerns or considerations in your data collection (e.g., when web scraping) and how you dealt with that in your code to ensure a responsible workflow.
-
-- US energy consumption
-
-```{r}
-library(httr)
-library(jsonlite)
-
-# Define your API key (replace "YOUR_API_KEY" with your actual API key)
-api_key <- "4s0cSEI4wy6PAjki0u9Rrl3ypjqiofDYr17z803N"
-
-# Define the API endpoint and parameters, including the API key
-url <- paste0("https://api.eia.gov/v2/electricity/electric-power-operational-data/data/?frequency=monthly&data[0]=consumption-for-eg&start=2022-08&end=2024-08&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=5000&api_key=", api_key)
-
-# Send the GET request
-response <- GET(url)
-
-# Check if the request was successful (status code 200)
-if (status_code(response) == 200) {
-  # Parse the JSON content
-  data <- fromJSON(content(response, "text"))
-  
-  # Print or explore the data
-  print(data)
-} else {
-  print(paste("Error:", status_code(response)))
-}
-If the API key is meant to go in the header:
-Alternatively, if the API key is meant to go in the header rather than the URL, you would use the add_headers() function:
-
-R
-Copy code
-headers <- c(
-  "X-API-Key" = "YOUR_API_KEY"
-)
-
-response <- GET(url, add_headers(headers))
-
-
-```
-
-SOURCE: Open AQ 
 
 
 ## 3. Secondary Data Collection (energy company stock information)
 
 You should provide a good explanation for why it is supplements the primary data, and how you envision it could be used to augment the primary data. When we evaluate your data collection in sections 2 and 3, we want to see that you have used a broad range of techniques from this course
 
-```{r}
-# Using r vest to scrape stocks from 3 companies 
-# Load required libraries
-library(rvest)
-library(dplyr)
-
-# Step 1: Create a vector of company ticker symbols (you can modify this list easily)
-companies <- c("AAPL", "GOOG", "MSFT")  # Example: Apple, Google, Microsoft
-
-# Step 2: Define a function to scrape data for each company
-scrape_data <- function(company) {
-  # Construct the URL (adjust this based on the website you're scraping from)
-  url <- paste0("https://www.example.com/company/", company)
-  
-  # Extract the stock opening value using the XPath
-  stock_value <- page %>%
-    html_node(xpath = '//*[@id="nimbus-app"]/section/section/section/article/div[2]/ul/li[2]/span[2]/fin-streamer') %>%
-    html_text() %>%
-    as.numeric()
-  
-  return(stock_value)
-}
-
-# URLs for Apple, Google, and Microsoft on Yahoo Finance
-apple_url <- "https://finance.yahoo.com/quote/AAPL"
-google_url <- "https://finance.yahoo.com/quote/GOOG"
-microsoft_url <- "https://finance.yahoo.com/quote/MSFT"
-
-# Scrape stock opening values
-apple_opening <- get_stock_opening(apple_url)
-google_opening <- get_stock_opening(google_url)
-microsoft_opening <- get_stock_opening(microsoft_url)
-
-# Create a data frame to store the results
-stock_data <- data.frame(
-  Company = c("Apple", "Google", "Microsoft"),
-  Opening_Price = c(apple_opening, google_opening, microsoft_opening)
-)
-
-# Print the results
-print(stock_data)
-```
 
 ## 4. Tabular data and transformations
 
