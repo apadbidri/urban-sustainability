@@ -315,54 +315,79 @@ print(primary_data_wide)
 
 ## 3. Secondary Data Collection 
 
-Information about pop density
+Information about population
 
 ```{r}
 library(rvest)
 library(tibble)
+library(dplyr)
 
-# Define the list of city names (you only need to modify this line to add more cities)
-cities <- c("Tokyo", "Paris", "Lisbon", "New_York_City", "São_Paulo", "Dubai", "Barcelona", "Seoul", 
-            "Bogotá", "Manchester", "Xi%27an", "Medina", "Penang", "Thessaloniki", "North_Dakota", 
-           "Bratislava", "Riga", "Skrova", "Shymkent")
+# Define the list of city names
+cities <- c("Tokyo", "Paris", "Lisbon", "New_York_City", "São_Paulo", "Dubai", 
+            "Barcelona", "Seoul", "Bogotá", "Manchester", "Xi%27an", "Medina", 
+            "Penang", "Nicosia", "North_Dakota", "Bratislava", "Riga", 
+            "Rieti", "Lima", "Inverness")
 
-# Define a named vector for cities and their corresponding XPath selectors for population density
-city_xpaths <- c(
-  "Tokyo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td/text()[1]",
-  "Paris" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[23]/td/text()[1]",
-  "Lisbon" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td/text()[1]",
-  "New_York_City" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[29]/td/text()[1]",
-  "São_Paulo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[31]/td/text()[1]",
-  "Dubai" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[17]/td/text()[1]",
-  "Barcelona" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[24]/td/text()[1]",
-  "Seoul" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[33]/td/text()[1]",
-  "Bogotá" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()[1]",
-  "Manchester" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[32]/td/text()[1]",
-  "Xi%27an" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()[1]",
-  "Medina" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[27]/td/text()[1]",
-  "Penang" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[37]/td/text()[1]", 
-  "Thessaloniki" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[28]/td/text()",
-  "North_Dakota" = "//*[@id='mw-content-text']/div[1]/table[2]/tbody/tr[37]/td/text()[1]", 
-  "Bratislava" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[28]/td/text()[1]",
-  "Riga" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]", 
-  "Skrova" = "//*[@id='mw-content-text']/div[1]/table/tbody/tr[7]/td", 
-  "Shymkent" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[17]/td/text()"
-    
-  # Add more cities and their corresponding XPaths here as needed
+# Define a named vector for cities and their corresponding XPath selectors for population and population density
+city_xpaths <- list(
+  population = c(
+    "Tokyo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[28]/td",
+    "Paris" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[21]/td",
+    "Lisbon" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[29]/td/text()",
+    "New_York_City" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td",
+    "São_Paulo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[29]/td",
+    "Dubai" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[16]/td",
+    "Barcelona" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[22]/td",
+    "Seoul" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[31]/td",
+    "Bogotá" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[23]/td/text()",
+    "Manchester" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td",
+    "Xi%27an" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td",
+    "Medina" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td",
+    "Penang" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[36]/td", 
+    "Nicosia" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td",
+    "North_Dakota" = "//*[@id='mw-content-text']/div[1]/table[2]/tbody/tr[35]/td/text()", 
+    "Bratislava" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()",
+    "Riga" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[18]/td", 
+    "Rieti" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td", 
+    "Lima" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td",
+    "Inverness" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[24]/td"
+  ),
+  pop_density = c(
+    "Tokyo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td/text()[1]",
+    "Paris" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[23]/td/text()[1]",
+    "Lisbon" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td/text()[1]",
+    "New_York_City" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[29]/td/text()[1]",
+    "São_Paulo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[31]/td/text()[1]",
+    "Dubai" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[17]/td/text()[1]",
+    "Barcelona" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[24]/td/text()[1]",
+    "Seoul" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[33]/td/text()[1]",
+    "Bogotá" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()[1]",
+    "Manchester" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[32]/td/text()[1]",
+    "Xi%27an" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[27]/td/text()[1]",
+    "Medina" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[27]/td/text()[1]",
+    "Penang" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[37]/td/text()[1]", 
+    "Nicosia" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td/text()[1]",
+    "North_Dakota" = "//*[@id='mw-content-text']/div[1]/table[2]/tbody/tr[37]/td/text()[1]", 
+    "Bratislava" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[28]/td/text()[1]",
+    "Riga" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]", 
+    "Rieti" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[20]/td/text()[1]", 
+    "Lima" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td/text()[1]",
+    "Inverness" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()[1]"
+  )
 )
 
-# Base URL for the Wikipedia pages
+# Base URL for Wikipedia pages
 base_url <- "https://en.wikipedia.org/wiki/"
 
 # Initialize an empty tibble to store results
-city_data <- tibble(City = character(), Population_Density = character())
+city_info <- tibble(city_names = character(), population = character(), pop_density = character())
 
-# Loop through each city name, construct the URL, and extract the population density
+# Loop through each city
 for (city in cities) {
-  # Construct the full URL for each city
+  # Construct the full URL
   url <- paste0(base_url, city)
   
-  # Read the HTML content of the webpage
+  # Try reading the webpage
   webpage <- tryCatch({
     read_html(url)
   }, error = function(e) {
@@ -371,30 +396,36 @@ for (city in cities) {
   })
   
   if (!is.null(webpage)) {
-    # Extract the population density value using the corresponding XPath for each city
-    pop_density_xpath <- city_xpaths[city]  # Get the correct XPath for the city
+    # Extract population and population density
+    population <- webpage %>%
+      html_nodes(xpath = city_xpaths$population[city]) %>%
+      html_text() %>%
+      trimws()
+    if (length(population) == 0) population <- NA
+    
     pop_density <- webpage %>%
-      html_nodes(xpath = pop_density_xpath) %>%
-      html_text() %>% 
-      trimws()  # Remove any leading or trailing whitespace
+      html_nodes(xpath = city_xpaths$pop_density[city]) %>%
+      html_text() %>%
+      trimws()
+    if (length(pop_density) == 0) pop_density <- NA
     
-    # If the population density is not found, set it as NA
-    if (length(pop_density) > 0) {
-      pop_density <- pop_density[1]  # Take the first value if there are multiple
-    } else {
-      pop_density <- NA
-    }
-    
-    # Add the city and its population density to the tibble
-    city_data <- bind_rows(city_data, tibble(City = city, Population_Density = pop_density))
+    # Add results to tibble
+    city_info <- bind_rows(city_info, tibble(
+      city_names = city,
+      population = population,
+      pop_density = pop_density
+    ))
   }
 }
 
-secondary_data <- city_data 
+secondary_data <- city_info
 
-# Print the final tibble
+# Print final tibble
 print(secondary_data)
 ```
+
+
+
 
 ## 4. Tabular data and transformations
 
