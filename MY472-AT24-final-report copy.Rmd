@@ -423,13 +423,6 @@ print(primary_data_wide)
 library(dplyr)
 ```
 
-
-
-
-
-
-
-
 Population Density Category 
 ```{r}
 library(dplyr)
@@ -460,11 +453,22 @@ primary_data_wide$stations_per_sqmi <- round(primary_data_wide$bike_stations / p
 print(primary_data_wide)
 ```
 
-AQI Quartiles 
+Bike availability category
+```{r}
+# Classify cities based on bike station availability
+high_threshold <- median(primary_data_wide$bike_stations, na.rm = TRUE)
+primary_data_wide$bike_station_category <- ifelse(primary_data_wide$bike_stations > high_threshold, 
+                                                   "High Availability", 
+                                                   "Low Availability")
+
+# Print the updated dataset
+print(primary_data_wide)
+```
+Policy Impact Index
 
 ```{r}
-```
 
+```
 
 
 
