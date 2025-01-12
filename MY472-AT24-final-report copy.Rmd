@@ -170,6 +170,89 @@ city_aqi_data <- city_aqi_data %>%
 # Print the final tibble
 print(city_aqi_data)
 ```
+Getting info about square 
+
+```{r}
+
+library(rvest)
+library(tibble)
+
+# Define the list of city names (you only need to modify this line to add more cities)
+cities <- c("Tokyo", "Paris", "Lisbon", "New_York_City", "São_Paulo", "Dubai", "Barcelona", "Seoul", 
+            "Bogotá", "Manchester", "Xi%27an", "Medina", "Penang", "Thessaloniki", "North_Dakota", 
+           "Bratislava", "Riga", "Skrova", "Shymkent")
+
+# Define a named vector for cities and their corresponding XPath selectors for population density
+city_xpaths <- c(
+  "Tokyo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[22]/td/text()[1]",
+  "Paris" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]",
+  "Lisbon" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()[1]",
+  "New_York_City" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[20]/td/text()[1]",
+  "São_Paulo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[24]/td/text()[1]",
+  "Dubai" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[14]/td/text()[1]",
+  "Barcelona" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]",
+  "Seoul" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td/text()[1]",
+  "Bogotá" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[18]/td/text()[1]",
+  "Manchester" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[27]/td/text()[1]",
+  "Xi%27an" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[20]/td/text()[1]",
+  "Medina" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[20]/td/text()[1]",
+  "Penang" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[32]/td/text()[1]", 
+  "Thessaloniki" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[21]/td/text()[1]",
+  "North_Dakota" = "//*[@id='mw-content-text']/div[1]/table[2]/tbody/tr[25]/td/text()[1]", 
+  "Bratislava" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]",
+  "Riga" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[14]/td/text()[1]", 
+  "Skrova" = "//*[@id='mw-content-text']/div[1]/table/tbody/tr[9]/td", 
+  "Shymkent" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[14]/td/text()[1]"
+    
+  # Add more cities and their corresponding XPaths here as needed
+)
+
+# Base URL for the Wikipedia pages
+base_url <- "https://en.wikipedia.org/wiki/"
+
+# Initialize an empty tibble to store results
+area_data <- tibble(city_name = character(), area = character())
+
+# Loop through each city name, construct the URL, and extract the population density
+for (city in cities) {
+  # Construct the full URL for each city
+  url <- paste0(base_url, city)
+  
+  # Read the HTML content of the webpage
+  webpage <- tryCatch({
+    read_html(url)
+  }, error = function(e) {
+    message("Error reading ", city, " page: ", e$message)
+    return(NULL)
+  })
+  
+  if (!is.null(webpage)) {
+    # Extract the population density value using the corresponding XPath for each city
+    area_xpath <- city_xpaths[city]  # Get the correct XPath for the city
+    area <- webpage %>%
+      html_nodes(xpath = area_xpath) %>%
+      html_text() %>% 
+      trimws()  # Remove any leading or trailing whitespace
+    
+    # If the population density is not found, set it as NA
+    if (length(area) > 0) {
+      area <- area[1]  # Take the first value if there are multiple
+    } else {
+      area <- NA
+    }
+    
+    # Add the city and its population density to the tibble
+    area_data <- bind_rows(area_data, tibble(city_name = city, area = area))
+  }
+}
+
+
+# Replace underscores with spaces in city names
+area_data$city_name <- gsub("_", " ", area_data$city_name)
+
+# Print the final tibble
+print(area_data)
+```
 # Merging into one dataset
 
 ```{r}
@@ -178,13 +261,57 @@ print(city_aqi_data)
 merged_data <- left_join(citybike_info, city_aqi_data, by = "city_name")
 
 # Rename 
-primary_data <- merged_data
+almost_data <- merged_data
+
+# Print the final merged data
+print(almost_data)
+
+```
+```{r}
+
+# Merge the citybike_info with city_aqi_data based on the City column
+primary_data <- left_join(almost_data, area_data, by = "city_name")
 
 # Print the final merged data
 print(primary_data)
 
 ```
 
+
+
+Cleaning up primary_data
+
+```{r}
+library(tidyr)
+library(dplyr)
+
+# Assuming 'primary_data' contains the long-format data
+
+primary_data_wide <- primary_data %>%
+  group_by(city_name) %>%
+  summarise(
+    bike_stations = n(),  # Number of bike stations per city
+    free_bikes = sum(free_bikes, na.rm = TRUE),  # Sum of free bikes per city
+    network_name = unique(network_name),  # Assuming each city has one network
+    AQI = unique(AQI),
+    area = unique(area) # Assuming each city has one AQI value
+  ) %>%
+  ungroup()
+
+
+# Remove any non-numeric characters (like commas, text)
+primary_data_wide$area <- gsub(",", "", primary_data_wide$area)  # Remove commas
+primary_data_wide$area <- gsub("[^0-9.]", "", primary_data_wide$area)  # Remove any non-numeric characters
+
+# Convert the 'area' column to numeric first
+primary_data_wide$area <- as.numeric(primary_data_wide$area)
+
+# Now convert to integer
+primary_data_wide$area <- as.integer(primary_data_wide$area)
+
+# Print the updated dataset
+print(primary_data_wide)
+```
 
 ## 3. Secondary Data Collection 
 
@@ -277,7 +404,7 @@ library(dplyr)
 
 
 # Assuming primary_data is your dataframe that contains the AQI column
-primary_data <- primary_data %>%
+primary_data_wide <- primary_data_wide %>%
   mutate(
     air_quality = case_when(
       AQI <= 50 ~ "Good",
@@ -291,13 +418,19 @@ primary_data <- primary_data %>%
   )
 
 # View the updated dataframe with the new air_quality column
-print(primary_data)
+print(primary_data_wide)
 
 library(dplyr)
 ```
 
-Population Densty Category 
 
+
+
+
+
+
+
+Population Density Category 
 ```{r}
 library(dplyr)
 
@@ -316,14 +449,15 @@ secondary_data <- secondary_data %>%
 print(secondary_data)
 ```
 
-AQI Quartiles 
-
+Ratio of bike stations per square km
 ```{r}
-```
+# Convert area from square kilometers to square miles
+primary_data_wide$area_miles <- primary_data_wide$area * 0.3861
 
-AQI Quartiles 
+# Now calculate stations per square mile
+primary_data_wide$stations_per_sqmi <- round(primary_data_wide$bike_stations / primary_data_wide$area_miles)
 
-```{r}
+print(primary_data_wide)
 ```
 
 AQI Quartiles 
