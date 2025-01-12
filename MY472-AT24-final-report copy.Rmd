@@ -109,8 +109,90 @@ if (http_type(response) == "application/json") {
   cat("Failed to retrieve data from the CityBikes API.\n")
 }
 ```
+```{r}
+# Load necessary libraries
+library(httr)
+library(jsonlite)
 
+# Define the API URL
+api_url <- "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=5.3729&longitude=100.2496&current=us_aqi"
 
+# Make the API request
+response <- GET(api_url)
+
+# Parse the API response
+if (http_type(response) == "application/json") {
+  air_quality_data <- content(response, as = "parsed", simplifyDataFrame = TRUE)
+  
+  # Extract the current AQI
+  current_aqi <- air_quality_data$current$us_aqi
+  
+  # Print the current AQI
+  cat("Current AQI:", current_aqi, "\n")
+} else {
+  cat("Failed to retrieve data from the Open-Meteo API.\n")
+}
+```
+```{r}
+library(httr)
+library(jsonlite)
+library(tibble)
+library(purrr)
+library(dplyr)
+
+# Define cities with names and coordinates 
+# ChatGPT was used to form this code chunk below pertaining to the list of cities with their corresponding coordinates 
+cities <- tibble::tibble(
+  City = c(
+    "Tokyo", "Paris", "Lisbon", "New York City", "São Paulo",
+    "Dubai", "Barcelona", "Seoul", "Bogotá", "Manchester",
+    "Xi'An", "Medina", "Penang", "Thessaloniki", "North Dakota",
+    "Saguenay", "Bratislava", "Riga", "Skrova", "Shymkent"
+  ),
+  Latitude = c(
+    35.6895, 48.8566, 38.7169, 40.7128, -23.5505,
+    25.2769, 41.3851, 37.5665, 4.711, 53.4808,
+    34.3416, 24.4667, 5.3729, 40.6401, 47.1164,
+    48.4284, 48.1486, 56.9496, 68.1178, 42.3174
+  ),
+  Longitude = c(
+    139.6917, 2.3522, -9.139, -74.006, -46.6333,
+    55.297, 2.1734, 126.978, -74.0721, -2.2426,
+    108.9398, 39.5994, 100.2496, 22.9444, -101.2996,
+    -71.0657, 17.1077, 24.1052, 14.5146, 69.5914
+  )
+)
+
+# Function to fetch AQI for a single city
+get_aqi <- function(latitude, longitude) {
+  # Construct the API URL
+  api_url <- sprintf(
+    "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%f&longitude=%f&current=us_aqi",
+    latitude, longitude
+  )
+  
+  # Make the API request
+  response <- GET(api_url)
+  
+  # Parse the response and extract AQI
+  if (http_type(response) == "application/json") {
+    air_quality_data <- content(response, as = "parsed", simplifyDataFrame = TRUE)
+    return(air_quality_data$current$us_aqi)
+  } else {
+    return(NA)  # Return NA if API call fails
+  }
+}
+
+# Apply the function to all cities and add the AQI to the tibble
+city_aqi_data <- cities %>%
+  mutate(AQI = map2_dbl(Latitude, Longitude, get_aqi))
+
+city_aqi_data <- city_aqi_data %>%
+  select(City, AQI)
+
+# Print the final tibble
+print(city_aqi_data)
+```
 ## 3. Secondary Data Collection 
 
 Information about pop density
