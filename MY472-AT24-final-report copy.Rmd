@@ -425,8 +425,6 @@ print(secondary_data)
 ```
 
 
-
-
 ## 4. Tabular data and transformations
 
 Air Quality Denomination 
@@ -461,10 +459,10 @@ library(dplyr)
 secondary_data <- secondary_data %>%
   mutate(
     pop_density_class = case_when(
-      Population_Density <= 1000 ~ "Low",
-      Population_Density > 1000 & Population_Density <= 5000 ~ "Medium",
-      Population_Density > 5000 & Population_Density <= 15000 ~ "High",
-      Population_Density > 15000 ~ "Very High",
+      pop_density <= 1000 ~ "Low",
+      pop_density > 1000 & pop_density <= 5000 ~ "Medium",
+      pop_density > 5000 & pop_density <= 15000 ~ "High",
+      pop_density > 15000 ~ "Very High",
       TRUE ~ NA_character_  # In case there are any NA or unexpected values
     )
   )
@@ -495,9 +493,24 @@ primary_data_wide$bike_station_category <- ifelse(primary_data_wide$bike_station
 # Print the updated dataset
 print(primary_data_wide)
 ```
-Policy Impact Index
+AQI and Bike Stations Interaction Index
+High index - could suggest that cities with high number of bike stations have lower AQI
+Low index - could suggest that cities with low number of bike stations have higher AQI 
 
 ```{r}
+
+# Assuming your dataset is named `df1`
+# Columns in df1: 'city', 'AQI', 'bike_station_density'
+
+# Step 1: Create the Interaction Index
+primary_data_wide$interaction_index <- round(primary_data_wide$bike_stations / primary_data_wide$AQI)
+
+# Step 2: Handle potential division-by-zero or NA issues
+primary_data_wide$interaction_index[is.infinite(primary_data_wide$interaction_index)] <- NA  # Replace Inf with NA
+primary_data_wide$interaction_index[is.na(primary_data_wide$interaction_index)] <- 0        # Replace NA with 0
+
+# Step 3: View the updated dataset
+print(primary_data_wide)
 
 ```
 
