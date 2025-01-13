@@ -573,34 +573,57 @@ ggplot(primary_data_wide_filtered, aes(x = AQI, y = bike_stations, color = inter
 
 
 ```{r}
-# Example primary_data_wide with 19 cities (replace AQI, latitude, and longitude with actual data)
 # Load necessary packages
+
 library(leaflet)
+library(dplyr)
 
-# Create a copy of the dataframe so the original 'primary_data_wide' is not altered
-primary_data_wide_copy <- primary_data_wide
+# City data with population density (values are just for example purposes)
+cities <- data.frame(
+  city_name = c("Xi'an", "Tokyo", "Seoul", "São_Paulo", "Riga", "Rieti", "Penang", 
+                "Paris", "North_Dakota", "Nicosia", "New_York_City", "Medina", 
+                "Manchester", "Lisbon", "Lima", "Inverness", "Dubai", "Bratislava", 
+                "Bogotá", "Barcelona"),
+  latitude = c(34.3416, 35.6762, 37.5665, -23.5505, 56.9460, 42.4020, 5.4165, 
+               48.8566, 47.5300, 35.1856, 40.7128, 24.4706, 53.4808, 38.7223, 
+               -12.0464, 57.4770, 25.276987, 48.1482, 4.7110, 41.3851),  # Coordinates
+  longitude = c(108.9398, 139.6503, 126.9780, -46.6333, 24.1059, 12.8751, 100.3302, 
+                2.3522, -97.5318, 17.1075, -74.0060, 39.6116, -2.2426, -9.1395, 
+                -77.0356, -4.6110, 55.296249, 17.1075, -74.0721, 2.1734),  # Coordinates
+  pop_density = c("2000", "6363", "16000", "7819.86", "2000", "230", "1659.11", 
+                  "20000", "4.13", "1700", "11313.8", "2012", "4920", "5445.7", 
+                  "12000", "2000", "110000", "1297", "5061", "16000")  # Population density (as strings)
+)
 
-# Create the interactive map
-leaflet(data = primary_data_wide_copy) %>%
+# Convert pop_density to numeric (removing any non-numeric characters)
+cities$pop_density <- as.numeric(gsub("[^0-9.]", "", cities$pop_density))
+
+# Check for missing values in the pop_density column and filter them out
+cities <- cities %>% filter(!is.na(pop_density))
+
+# Create the interactive dot map
+leaflet(data = cities) %>%
   addTiles() %>%  # Add default OpenStreetMap tiles
-  addCircles(
+  addCircleMarkers(
     lat = ~latitude,
     lng = ~longitude,
-    radius = ~AQI * 2,  # Adjust the radius based on AQI values (e.g., multiplied by 2 for visibility)
-    popup = ~paste(city_name, "<br> AQI:", AQI),
-    color = ~ifelse(AQI > 100, "red", ifelse(AQI > 50, "orange", "green")),  # Color by AQI
+    radius = ~sqrt(pop_density) * 0.1,  # Adjust the size of the dots based on population density (scaled)
+    popup = ~paste(city_name, "<br> Population Density:", pop_density, "people/km²"),
+    color = ~ifelse(pop_density > 10000, "red", ifelse(pop_density > 5000, "orange", "green")),  # Color by population density
     stroke = FALSE,
     fillOpacity = 0.7
   ) %>%
   addLegend("bottomright", 
-            pal = colorNumeric(palette = "RdYlGn", domain = c(0, 200)), 
-            values = primary_data_wide_copy$AQI, 
-            title = "AQI", 
+            pal = colorNumeric(palette = "RdYlGn", domain = c(0, max(cities$pop_density, na.rm = TRUE))), 
+            values = cities$pop_density, 
+            title = "Population Density (people/km²)", 
             opacity = 1)
 ```
 
 
 ```{r}
+
+
 
 ```
 
