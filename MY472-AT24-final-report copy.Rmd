@@ -518,7 +518,97 @@ print(primary_data_wide)
 
 ## 5. Data Visualisation
 
-[The text and code for this section goes here.]
+
+```{r}
+library(ggplot2)
+ggplot(primary_data_wide, aes(x = AQI)) +
+  geom_density(fill = "skyblue", alpha = 0.7) +
+  labs(
+    title = "Density Distribution of AQI",
+    x = "Air Quality Index (AQI)",
+    y = "Density"
+  ) +
+  theme_minimal()
+```
+With outlier
+```{r}
+
+# Filter out the row where city is "Medina"
+ggplot(primary_data_wide, aes(x = AQI, y = bike_stations, color = interaction_index)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm") +  # Linear regression line
+  scale_color_gradient(low = "blue", high = "red", name = "Interaction Index") +  # Color scale for interaction index
+  labs(
+    title = "Bike Stations vs. Air Quality",
+    x = "Air Quality Index (AQI)",
+    y = "Number of Bike Stations"
+  ) +
+  theme_minimal()
+
+```
+
+
+Remove outlier
+```{r}
+
+# Filter out the row where city is "Medina"
+primary_data_wide_filtered <- primary_data_wide %>%
+  filter(city_name != "Medina")
+
+ggplot(primary_data_wide_filtered, aes(x = AQI, y = bike_stations, color = interaction_index)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm") +  # Linear regression line
+  scale_color_gradient(low = "blue", high = "red", name = "Interaction Index") +  # Color scale for interaction index
+  labs(
+    title = "Bike Stations vs. Air Quality",
+    x = "Air Quality Index (AQI)",
+    y = "Number of Bike Stations"
+  ) +
+  theme_minimal()
+
+```
+
+
+
+
+
+```{r}
+# Example primary_data_wide with 19 cities (replace AQI, latitude, and longitude with actual data)
+# Load necessary packages
+library(leaflet)
+
+# Create a copy of the dataframe so the original 'primary_data_wide' is not altered
+primary_data_wide_copy <- primary_data_wide
+
+# Create the interactive map
+leaflet(data = primary_data_wide_copy) %>%
+  addTiles() %>%  # Add default OpenStreetMap tiles
+  addCircles(
+    lat = ~latitude,
+    lng = ~longitude,
+    radius = ~AQI * 2,  # Adjust the radius based on AQI values (e.g., multiplied by 2 for visibility)
+    popup = ~paste(city_name, "<br> AQI:", AQI),
+    color = ~ifelse(AQI > 100, "red", ifelse(AQI > 50, "orange", "green")),  # Color by AQI
+    stroke = FALSE,
+    fillOpacity = 0.7
+  ) %>%
+  addLegend("bottomright", 
+            pal = colorNumeric(palette = "RdYlGn", domain = c(0, 200)), 
+            values = primary_data_wide_copy$AQI, 
+            title = "AQI", 
+            opacity = 1)
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
 
 ## 6. Data output and storage 
 
