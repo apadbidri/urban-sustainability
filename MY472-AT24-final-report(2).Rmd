@@ -1,0 +1,695 @@
+---
+title: "Air Quality and Urban Sustainability: Leveraging Bike-Sharing for Greener Cities"
+author: "Candidate Number: 43182"
+date: "14/1/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r mirror-setting, echo=FALSE}
+# Set CRAN mirror to avoid errors when knitting
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+```
+
+**Prompt:** 1
+
+**ChatGPT/AI disclosure statement:** ChatGPT was used to help brainstorm ideas and clarify concepts. However, all data collection, analysis, and writing were carried out independently.
+
+## 1. Background 
+
+As part of the Urban Policy Research Institute's mission to address critical urban sustainability challenges, the following compiled dataset can be used to explore the relationship between air quality and bike-sharing usage. With cities worldwide facing worsening air quality and its detrimental impacts on public health, this report could provide the foundation for analysis for actionable policy insights. This dataset focuses on identifying whether increased adoption of bike-sharing systems can serve as an effective strategy to reduce urban air pollution and promote cleaner transportation alternatives. It represents a promising resource for future research to guide evidence-based solutions for sustainable urban development.
+
+## 2. Data on Bike-Sharing Networks and Air Quality
+
+Bike-sharing network data was pulled using the open-access CityBik API, selecting cities across different continents to ensure variability in geography, air quality, and urban density. CityBik provides information on bike stations for specific bike sharing networks across the city, with the corresponding amount of free bikes and empty stands.
+
+Unfortunately, data for African cities was unavailable, limiting generalisability. Future analyses will incorporate this region as data becomes accessible.
+
+```{r pull-citybike, message = FALSE, warning = FALSE}
+
+library(httr)
+library(jsonlite)
+library(dplyr)
+
+base_url <- "http://api.citybik.es/v2/networks"
+
+# Initialize an empty data frame to store the results
+citybike_info <- data.frame()
+
+# List of bike network names and their corresponding cities
+network_cities <- c(
+  "HELLO CYCLING Tokyo" = "Tokyo", 
+  "Vélib' Métropole" = "Paris", 
+  "Gira" = "Lisbon", 
+  "Citi Bike" = "New York City", 
+  "BikeSampa" = "São Paulo", 
+  "Dubai Careem BIKE" = "Dubai", 
+  "Bicing" = "Barcelona", 
+  "Seoul Bike 따릉이" = "Seoul", 
+  "Tembici" = "Bogotá", 
+  "Beryl - Greater Manchester" = "Manchester",
+  "Xi'an Public Bicycle" = "Xi'An", 
+  "Medina Careem BIKE" = "Medina", 
+  "LinkBike" = "Penang", 
+  "Nextbike" = "Nicosia", 
+  "Slovnaft BAjk" = "Bratislava", 
+  "SiXT" = "Riga", 
+  "CityBike Lima" = "Lima"
+)
+
+
+r <- GET(base_url)
+json <- content(r, as = "parsed")
+  
+# Explore the structure of the parsed JSON content
+class(json)        
+names(json)    
+length(json$networks)
+
+networks_list <- json$networks
+    
+# Loop through each network and retrieve information in the desired city list
+for (network in networks_list) {
+  network_name <- network$name
+      
+  # Check if the network is in the list of desired networks
+  if (network_name %in% names(network_cities)) {
+    network_id <- network$id
+    city_name <- network_cities[network_name]
+        
+    # Construct the URL for the specific network
+    network_url <- paste0(base_url, "/", network_id)
+        
+    # Retrieve information about the network
+    network_response <- GET(network_url)
+    network_details <- content(network_response, as = "parsed", simplifyDataFrame = TRUE)
+        
+    # Extract station details and add new columns for the network name and city
+    stations <- network_details$network$stations
+    stations$network_name <- network_name
+    stations$city_name <- city_name  
+        
+    # Ensure 'extra$uid' is treated as character to avoid errors in some networks' data formats
+    if("extra" %in% names(stations)) {
+      stations$extra$uid <- as.character(stations$extra$uid)
+    }
+        
+    # Combine the new stations data with the citybike_info dataset
+    citybike_info <- bind_rows(citybike_info, stations)
+    
+    # Delay for etiquette
+      Sys.sleep(1)
+  }
+}
+
+head(citybike_info)
+```
+
+Air quality data for each city was obtained using the Open Meteo API, with AQI selected as it provides a standardized measure for comparing pollution levels across locations.
+
+```{r pull-aqi, message = FALSE, warning = FALSE}
+
+library(httr)
+library(jsonlite)
+library(tibble)
+library(purrr)
+library(dplyr)
+
+# ChatGPT was used to automate the creation of this list of cities, latitudes and longitudes
+cities <- tibble::tibble(
+  city_name = c(
+    "Tokyo", "Paris", "Lisbon", "New York City", "São Paulo",
+    "Dubai", "Barcelona", "Seoul", "Bogotá", "Manchester",
+    "Xi'An", "Medina", "Penang", "Nicosia",
+    "Bratislava", "Riga", "Lima"
+  ),
+  Latitude = c(
+    35.6895, 48.8566, 38.7169, 40.7128, -23.5505,
+    25.276987, 41.3851, 37.5665, 4.711, 53.4808,
+    34.3416, 24.4667, 5.3729, 40.6401,
+    48.1482, 56.946, -12.0464
+  ),
+  Longitude = c(
+    139.6917, 2.3522, -9.139, -74.0060, -46.6333,
+    55.296, 2.1734, 126.978, -74.0721, -2.2426,
+    108.9398, 39.5994, 100.2496, 22.9444,
+    -17.1077, 24.1052, -77.0428
+  )
+)
+
+
+# Function to fetch AQI for a single city
+get_aqi <- function(latitude, longitude) {
+  # Construct the API URL
+  api_url <- sprintf(
+    "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=%f&longitude=%f&current=us_aqi",
+    latitude, longitude
+  )
+  
+  # Make the API request
+  r <- GET(api_url)
+
+    json <- content(r, as = "parsed")
+    return(json$current$us_aqi)
+  
+}
+
+# Apply the function to all cities and add the AQI to the tibble
+city_aqi_data <- cities %>%
+  mutate(aqi = map2_dbl(Latitude, Longitude, get_aqi))
+
+city_aqi_data <- city_aqi_data %>%
+  select(city_name, aqi)
+
+head(city_aqi_data)
+```
+
+City area data, representing the physical size of each urban area, was scraped from Wikipedia using the rvest package. This metric helps contextualize the bike-sharing and air quality data, providing a sense of the spatial extent of each city.
+
+```{r pull-area, message = FALSE, warning = FALSE}
+library(rvest)
+library(tibble)
+
+# List of desired cities 
+cities <- c("Tokyo", "Paris", "Lisbon", "New_York_City", "São_Paulo", "Dubai", "Barcelona", "Seoul", 
+            "Bogotá", "Manchester", "Xi%27an", "Medina", "Penang", "Nicosia", 
+           "Bratislava", "Riga", "Lima")
+
+# Vector for cities and their corresponding XPath selectors for population density
+city_xpaths <- c(
+  "Tokyo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[22]/td/text()[1]",
+  "Paris" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]",
+  "Lisbon" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()[1]",
+  "New_York_City" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[20]/td/text()[1]",
+  "São_Paulo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[24]/td/text()[1]",
+  "Dubai" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[14]/td/text()[1]",
+  "Barcelona" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]",
+  "Seoul" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td/text()[1]",
+  "Bogotá" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[18]/td/text()[1]",
+  "Manchester" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[27]/td/text()[1]",
+  "Xi%27an" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[20]/td/text()[1]",
+  "Medina" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[20]/td/text()[1]",
+  "Penang" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[32]/td/text()[1]", 
+  "Nicosia" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[18]/td/text()[1]",
+  "Bratislava" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]",
+  "Riga" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[14]/td/text()[1]", 
+  "Lima" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[18]/td/text()[1]"
+)
+
+# Base URL for the Wikipedia pages
+base_url <- "https://en.wikipedia.org/wiki/"
+
+# Initialize an empty tibble to store results
+area_data <- tibble(city_name = character(), area = character())
+
+# Loop through each city name, construct the URL, and extract the population density
+for (city in cities) {
+  # Construct the full URL for each city
+  url <- paste0(base_url, city)
+  
+  # Read the HTML content of the webpage
+  webpage <- tryCatch({
+    read_html(url)
+  }, error = function(e) {
+    message("Error reading ", city, " page: ", e$message)
+    return(NULL)
+  })
+  
+  if (!is.null(webpage)) {
+    # Retrieve the population density value using the corresponding XPath for each city
+    area_xpath <- city_xpaths[city] 
+    area <- webpage %>%
+      html_nodes(xpath = area_xpath) %>%
+      html_text() %>% 
+      trimws()
+    
+    # If the population density is not found, set it as NA
+    if (length(area) > 0) {
+      area <- area[1]  # Take the first value if there are multiple
+    } else {
+      area <- NA
+    }
+    
+    # Manually assign area values for cities that Wiki describes in miles
+    if (city == "New_York_City") {
+      area <- "783.8 km"
+    } else if (city == "Manchester") {
+      area <- "115.6 km"
+    } 
+    
+    # Add the city and its population density to the tibble
+    area_data <- bind_rows(area_data, tibble(city_name = city, area = area))
+  }
+}
+
+# Replace underscores with spaces in city names
+area_data$city_name <- gsub("_", " ", area_data$city_name)
+
+print(area_data)
+```
+
+The three datasets, bike-sharing network information, air quality data, and city area data, were merged into a single primary dataset for a  consolidated and more comprehensive view.
+
+```{r merge-datasets, message = FALSE, warning = FALSE}
+library(dplyr)
+
+# Merge by "city_name"
+merged_data <- citybike_info %>%
+  left_join(city_aqi_data, by = "city_name") %>%
+  left_join(area_data, by = "city_name")
+```
+
+The initial dataset was untidy. The data was reformatted from long to wide format by grouping city-specific records into individual rows, ensuring better alignment for subsequent analysis. Non-numeric characters in numeric columns were addressed and type mismatches were corrected, resulting in a clean and tidy tibble.
+
+```{r tidy-datasets, message = FALSE, warning = FALSE}
+library(tidyr)
+library(dplyr)
+
+primary_data <- merged_data %>%
+  group_by(city_name) %>%
+  summarise(
+    bike_stations = n(),
+    free_bikes = sum(free_bikes, na.rm = TRUE),  # Sum of free bikes per city
+    network_name = unique(network_name),
+    aqi = unique(aqi),
+    area = unique(area)
+  ) %>%
+  ungroup()
+
+
+# Remove any non-numeric characters (e.g. commas, text)
+primary_data$area <- gsub(",", "", primary_data$area)
+primary_data$area <- gsub("[^0-9.]", "", primary_data$area)
+
+# Convert the 'area' column to numeric first
+primary_data$area <- as.numeric(primary_data$area)
+
+# Now convert to integer
+primary_data$area <- as.integer(primary_data$area)
+
+print(primary_data)
+```
+
+## 3. Supplementary Data Acquisition - Population Information
+
+Information on population and population density for each city was also extracted using rvest, as this secondary data will supplement the primary data. By incorporating population and density figures, the analysis will be better equipped to assess the relationship between urban characteristics and bike-sharing trends, offering more granular insights into how air quality and urbanization might influence bike-sharing usage across different cities.
+
+```{r pull-population, message = FALSE, warning = FALSE}
+library(rvest)
+library(tibble)
+library(dplyr)
+
+# Define a vector for the cities: Tokyo, Paris, and Lisbon
+# Define a vector for the cities: Tokyo, Paris, Lisbon, New York, São Paulo, and Dubai
+cities <- c("Tokyo", "Paris", "Lisbon", "New_York_City", "São_Paulo", "Dubai", 
+            "Barcelona", "Seoul", "Bogotá", "Manchester", "Xi%27an", "Medina", 
+            "Penang", "Nicosia", "Bratislava", "Riga", "Lima")
+
+# Define a named vector for cities and their corresponding XPath selectors for population and population density
+city_xpaths <- list(
+  population = c(
+    "Tokyo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[28]/td",
+    "Paris" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[21]/td",
+    "Lisbon" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[29]/td/text()",
+    "New_York_City" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td",
+    "São_Paulo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[29]/td",
+    "Dubai" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[16]/td",
+    "Barcelona" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[22]/td",
+    "Seoul" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[31]/td",
+    "Bogotá" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[23]/td/text()",
+    "Manchester" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td",
+    "Xi%27an" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td",
+    "Medina" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td",
+    "Penang" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[36]/td",
+    "Nicosia" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td",
+    "Bratislava" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()",
+    "Riga" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[18]/td",
+    "Lima" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td"
+  ),
+  pop_density = c(
+    "Tokyo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td/text()[1]",
+    "Paris" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[23]/td/text()[1]",
+    "Lisbon" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[30]/td/text()[1]",
+    "New_York_City" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[29]/td/text()[1]",
+    "São_Paulo" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[31]/td/text()[1]",
+    "Dubai" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[17]/td/text()[1]",
+    "Barcelona" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[24]/td/text()[1]",
+    "Seoul" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[33]/td/text()[1]",
+    "Bogotá" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[25]/td/text()[1]",
+    "Manchester" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[32]/td/text()[1]",
+    "Xi%27an" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[27]/td/text()[1]",
+    "Medina" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[27]/td/text()[1]",
+    "Penang" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[37]/td/text()[1]",
+    "Nicosia" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td/text()[1]",
+    "Bratislava" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[28]/td/text()[1]",
+    "Riga" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[19]/td/text()[1]",
+    "Lima" = "//*[@id='mw-content-text']/div[1]/table[1]/tbody/tr[26]/td/text()[1]"
+  )
+)
+
+base_url <- "https://en.wikipedia.org/wiki/"
+
+# Initialize empty tibble to store results
+city_info <- tibble(city_names = character(), population = character(), pop_density = character())
+
+# Loop through each city
+for (city in cities) {
+  # Construct the full URL
+  url <- paste0(base_url, city)
+  
+  # Try reading the webpage
+  webpage <- tryCatch({
+    read_html(url)
+  }, error = function(e) {
+    message("Error reading ", city, " page: ", e$message)
+    return(NULL)
+  })
+  
+  if (!is.null(webpage)) {
+    # Extract population and population density
+    population <- webpage %>%
+      html_nodes(xpath = city_xpaths$population[city]) %>%
+      html_text() %>%
+      trimws()
+    if (length(population) == 0) population <- NA
+    
+    pop_density <- webpage %>%
+      html_nodes(xpath = city_xpaths$pop_density[city]) %>%
+      html_text() %>%
+      trimws()
+    if (length(pop_density) == 0) pop_density <- NA
+    
+    # Manually assign density values for cities that Wiki describes in miles
+    if (city == "New_York_City") {
+      pop_density <- "11,313.8/km"
+    } else if (city == "Manchester") {
+      pop_density <- "4,920/km"
+    } 
+    
+    # Add results to tibble
+    city_info <- bind_rows(city_info, tibble(
+      city_names = city,
+      population = population,
+      pop_density = pop_density
+    ))
+  }
+}
+
+secondary_data <- city_info
+
+print(secondary_data)
+```
+
+## 4. Data Preparations and Transformations
+
+The data was observed to already be tidy, thus several meaningful transformations were applied to enhance its analytical potential. These transformations were essential to make the data more informative and relevant for exploring the relationship between air quality and bike-sharing systems in urban environments.
+
+1) Air Quality Classification
+
+A new variable was created to categorise cities into three groups based on their AQI values: 'Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous', and 'Unknown' based on the official AQI classification standards. This transformation simplifies the raw AQI data and enables easier comparison of air quality across cities, which is crucial for understanding how pollution levels may influence urban transportation patterns.
+
+```{r aqi-class, message = FALSE, warning = FALSE}
+library(dplyr)
+
+primary_data <- primary_data %>%
+  mutate(
+    air_quality = case_when(
+      aqi <= 50 ~ "Good",
+      aqi > 50 & aqi <= 100 ~ "Moderate",
+      aqi > 100 & aqi <= 150 ~ "Unhealthy for sensitive groups",
+      aqi > 150 & aqi <= 200 ~ "Unhealthy",
+      aqi > 200 & aqi <= 300 ~ "Very unhealthy",
+      aqi > 300 ~ "Hazardous",
+      TRUE ~ "Unknown"  # To handle any unexpected AQI values
+    )
+  )
+
+print(primary_data)
+```
+
+2) Population Density Category
+
+Population density was categorized into 'Low', 'Medium', 'High', and 'Very High' based on quartiles of density distribution. This classification helps highlight the relationship between urban density and bike-sharing usage, offering insight into how cities with varying population densities might differ in their reliance on bike-sharing programs.
+
+```{r pop-density-cat, message = FALSE, warning = FALSE}
+library(dplyr)
+
+secondary_data <- secondary_data %>%
+  mutate(
+    pop_density_class = case_when(
+      pop_density <= 1000 ~ "Low",
+      pop_density > 1000 & pop_density <= 5000 ~ "Medium",
+      pop_density > 5000 & pop_density <= 15000 ~ "High",
+      pop_density > 15000 ~ "Very High"
+    )
+  )
+
+print(secondary_data)
+```
+
+3) Ratio of Bike Stations per Square Mile
+
+A new variable was calculated by dividing the total number of bike-sharing stations by the city's area (in square miles). This ratio provides a clear indicator of bike station density and helps evaluate the availability and accessibility of bike-sharing services within different urban space.
+
+```{r station-mile-ratio, message = FALSE, warning = FALSE}
+# Convert area from square kilometers to square miles
+primary_data$area_miles <- primary_data$area * 0.3861
+
+# Now calculate stations per square mile
+primary_data$stations_per_sqmi <- round(primary_data$bike_stations / primary_data$area_miles)
+
+print(primary_data)
+```
+
+4) Bike Availability Category
+
+A new categorical variable was added based on bike station density, classifying cities as having low or high bike availability. This transformation helps assess the adequacy of bike-sharing infrastructure in each city, an essential factor when analyzing the potential for bike-sharing to reduce pollution.
+
+```{r bike-avail, message = FALSE, warning = FALSE}
+
+high_threshold <- median(primary_data$bike_stations, na.rm = TRUE)
+primary_data$bike_station_category <- ifelse(primary_data$bike_stations > high_threshold, 
+                                                   "High Availability", 
+                                                   "Low Availability")
+
+print(primary_data)
+```
+
+
+5) AQI and Bike Station Interaction Index
+
+A composite index was created to measure the relationship between AQI levels and bike availability, combining environmental and transportation factors. A high index value suggests that cities with more bike stations may have lower AQI levels, while a low index value indicates that cities with fewer bike stations may experience higher AQI levels. This index highlights the potential impact of bike-sharing on improving urban air quality.
+
+```{r interaction-index, message = FALSE, warning = FALSE}
+primary_data$interaction_index <- round(primary_data$bike_stations / primary_data$aqi)
+
+print(primary_data)
+```
+
+## 5. Visual Summary
+
+The interactive dot map below plots the population density in each city.
+
+```{r pop-density-map, message = FALSE, warning = FALSE}
+
+library(leaflet)
+library(dplyr)
+
+# ChatGPT was used to automate the creation of this list of cities, coordinates and population density
+cities <- data.frame(
+  city_name = c("Tokyo", "Paris", "Lisbon", "New_York_City", "São_Paulo", "Dubai", 
+                "Barcelona", "Seoul", "Bogotá", "Manchester", "Xi'an", "Medina", 
+                "Penang", "Nicosia", "Bratislava", "Riga", "Lima"),
+  latitude = c(35.6762, 48.8566, 38.7223, 40.7128, -23.5505, 24.4706, 41.3851, 
+               37.5665, 4.7110, 53.4808, 34.3416, 24.4706, 5.4165, 35.1856, 
+               48.1482, 56.9460, -12.0464), 
+  longitude = c(139.6503, 2.3522, -9.1395, -74.0060, -46.6333, 39.6116, 2.1734, 
+                126.9780, 74.0721, -2.2426, 108.9398, 39.6116, 100.3302, 
+                17.1075, 17.1077, 24.1059, -77.0356),
+  population_density = c("6363", "20000", "4920", "11313.8", "7819.86", "2012", "16000", 
+                         "16000", "1700", "5061", "2000", "5445.7", "1659.11", "1700", 
+                         "2000", "2000", "12000")
+)
+
+# Convert pop_density to numeric (removing any non-numeric characters)
+cities$population_density <- as.numeric(gsub("[^0-9.]", "", cities$population_density))
+
+
+# Interactive dot map
+leaflet(data = cities) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    lat = ~latitude,
+    lng = ~longitude,
+    radius = ~sqrt(population_density) * 0.1,  
+    popup = ~paste(city_name, "<br> Population Density:", population_density, "people/km²"),
+    color = ~ifelse(population_density > 10000, "red", ifelse(population_density > 5000, "orange", "green")), 
+    stroke = FALSE,
+    fillOpacity = 0.7
+  ) %>%
+  addLegend("bottomright", 
+            pal = colorNumeric(palette = "RdYlGn", domain = c(0, max(cities$population_density, na.rm = TRUE))), 
+            values = cities$population_density, 
+            title = "Population Density (people/km²)", 
+            opacity = 1)
+```
+
+# Bike Stations vs. Air Quality: A Visual Comparison
+
+The number of bike stations with air quality index (AQI) levels across cities is compared below, highlighting the relationship between transportation infrastructure and air quality.
+
+```{r stations-aqi-plot, message = FALSE, warning = FALSE}
+library(ggplot2)
+ggplot(primary_data, aes(x = aqi, y = bike_stations, color = interaction_index)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm") +  # Linear regression line
+  scale_color_gradient(low = "blue", high = "red", name = "Interaction Index") +
+  labs(
+    title = "Bike Stations vs. Air Quality",
+    x = "Air Quality Index (AQI)",
+    y = "Number of Bike Stations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),  # Remove gridlines
+    axis.line = element_line(color = "black")  # Add axis lines for better clarity
+  ) 
+```
+
+The outlier with disproportionately high AQI was removed to ensure the accuracy and representativeness of the analysis, preventing skewed results. The following graph depicts the relationship after removing the outlier:
+
+```{r filtered_stations_aqi_plot, message = FALSE, warning = FALSE}
+library(ggplot2)
+
+# Filter out the row where city is "Medina"
+primary_data_filtered <- primary_data %>%
+  filter(city_name != "Medina")
+
+ggplot(primary_data_filtered, aes(x = aqi, y = bike_stations, color = interaction_index)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm") +
+  scale_color_gradient(low = "blue", high = "red", name = "Interaction Index") +
+  labs(
+    title = "Bike Stations vs. Air Quality",
+    x = "Air Quality Index (AQI)",
+    y = "Number of Bike Stations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),  # Remove gridlines
+    axis.line = element_line(color = "black")  # Add axis lines for better clarity
+  )
+```
+## 6. Organising Data 
+
+```{r folder_creation, message = FALSE, warning = FALSE}
+
+dir.create("data")
+dir.create("outputs")
+
+# Create sub folders
+dir.create("data/raw")
+dir.create("data/processed")
+dir.create("outputs/plots")
+```
+
+```{r saving_data, message = FALSE, warning = FALSE}
+
+# Raw Data 
+saveRDS(citybike_info, "data/raw/citybike_info.rds") # RDS rather than csv for formatting purposes 
+write_json(citybike_info, "data/raw/citybike_info.json", pretty = TRUE)
+
+write.csv(city_aqi_data, "data/raw/city_aqi_data.csv", row.names = FALSE)
+write_json(city_aqi_data, "data/raw/city_aqi_data.json", pretty = TRUE)
+
+write.csv(area_data, "data/raw/area_data.csv", row.names = FALSE)
+write_json(area_data, "data/raw/area_data.json", pretty = TRUE)
+
+# Processed Data
+write.csv(primary_data, "data/processed/primary_data.csv", row.names = FALSE)
+write_json(primary_data, "data/processed/primary_data.json", pretty = TRUE)
+
+write.csv(secondary_data, "data/processed/secondary_data.csv", row.names = FALSE)
+write_json(secondary_data, "data/processed/secondary_data.json", pretty = TRUE)
+```
+
+```{r saving_plots, message = FALSE, warning = FALSE}
+
+# Save interactive plots using html widget
+install.packages("htmlwidget")
+library(htmlwidgets)
+saveWidget(leaflet(data = cities) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    lat = ~latitude,
+    lng = ~longitude,
+    radius = ~sqrt(population_density) * 0.1,  
+    popup = ~paste(city_name, "<br> Population Density:", population_density, "people/km²"),
+    color = ~ifelse(population_density > 10000, "red", ifelse(population_density > 5000, "orange", "green")), 
+    stroke = FALSE,
+    fillOpacity = 0.7
+  ) %>%
+  addLegend("bottomright", 
+            pal = colorNumeric(palette = "RdYlGn", domain = c(0, max(cities$population_density, na.rm = TRUE))), 
+            values = cities$population_density, 
+            title = "Population Density (people/km²)", 
+            opacity = 1), 
+  "outputs/plots/interactive_dot_map.html", selfcontained = TRUE)
+
+# Save ggplot2 graphs as PNG
+
+# With outlier 
+ggsave(
+  filename = "outputs/plots/bike_stations_vs_aqi.png",  
+  plot = ggplot(primary_data, aes(x = aqi, y = bike_stations, color = interaction_index)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm") + 
+  scale_color_gradient(low = "blue", high = "red", name = "Interaction Index") +
+  labs(
+    title = "Bike Stations vs. Air Quality",
+    x = "Air Quality Index (AQI)",
+    y = "Number of Bike Stations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),  
+    axis.line = element_line(color = "black") 
+  ) ,                            
+  width = 8,                                          
+  height = 6,                                         
+  dpi = 300                                           
+)
+
+# Without outlier
+ggsave(
+  filename = "outputs/plots/filtered_stations_vs_aqi.png",  
+  plot = ggplot(primary_data_filtered, aes(x = aqi, y = bike_stations, color = interaction_index)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(method = "lm") +
+  scale_color_gradient(low = "blue", high = "red", name = "Interaction Index") +
+  labs(
+    title = "Bike Stations vs. Air Quality",
+    x = "Air Quality Index (AQI)",
+    y = "Number of Bike Stations"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),  
+    axis.line = element_line(color = "black")  
+  ),                           
+  width = 8,                                          
+  height = 6,                                         
+  dpi = 300                                           
+)
+```
+
+Concluding remarks 
+
+The report of bike-sharing systems in relation and air quality provides a valuable evidence base for research with regard to exploring policy solutions for sustainable urban mobility. The insights gained from the data support the potential for bike-sharing networks to serve as a tool for reducing urban pollution. This report contributes to ongoing efforts within the Institute to inform policy decisions and further research on the intersection of environmental health and transportation infrastructure. The findings offer a foundation for future studies aimed at promoting urban sustainability through evidence-based, data-driven policy recommendations.

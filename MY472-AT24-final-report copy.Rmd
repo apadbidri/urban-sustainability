@@ -48,13 +48,13 @@ network_cities <- c(
   "Xi'an Public Bicycle" = "Xi'An", 
   "Medina Careem BIKE" = "Medina", 
   "LinkBike" = "Penang", 
-  "ThessBike" = "Thessaloniki", 
+  "Nextbike" = "Nicosia", 
   "BisPArks BCycle" = "North Dakota", 
   "Accès Vélo" = "Saguenay", 
   "Slovnaft BAjk" = "Bratislava", 
   "SiXT" = "Riga", 
-  "Skrova Bysykkel" = "Skrova", 
-  "Shymkentbike" = "Shymkent"
+  "CityBike Lima" = "Lima", 
+  "Hi-Bike Inverness" = "Inverness"
 )
 
 # Fetch all networks to get a list of all available networks globally
@@ -98,15 +98,7 @@ if (http_type(response) == "application/json") {
         citybike_info <- bind_rows(citybike_info, stations)
       }
     }
-    
-    # Print the combined citybike_info data with the new city_name column
-    print(citybike_info)
-    
-  } else {
-    cat("Error: 'networks' not found in the API response.\n")
-  }
-} else {
-  cat("Failed to retrieve data from the CityBikes API.\n")
+  } 
 }
 ```
 
@@ -518,18 +510,6 @@ print(primary_data_wide)
 
 ## 5. Data Visualisation
 
-
-```{r}
-library(ggplot2)
-ggplot(primary_data_wide, aes(x = AQI)) +
-  geom_density(fill = "skyblue", alpha = 0.7) +
-  labs(
-    title = "Density Distribution of AQI",
-    x = "Air Quality Index (AQI)",
-    y = "Density"
-  ) +
-  theme_minimal()
-```
 With outlier
 ```{r}
 
