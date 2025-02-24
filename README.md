@@ -2,8 +2,8 @@
 
 This repository contains code related to global city bike networks and air quality metrics. It integrates data from various bike-sharing programs with air quality information (AQI) to explore correlations between bike station distribution and environmental factors such as pollution. Population metric data is included for further analysis.
 
-script.Rmd: The R Markdown file for the final report, containing all code and visualizations
-report.html: The rendered HTML version of the final report
+* script.Rmd: The R Markdown file for the final report, containing all code and visualizations
+* report.html: The rendered HTML version of the final report
 
 Contact
 Email: alyssanpadbidri@gmail.com
